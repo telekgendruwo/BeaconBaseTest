@@ -6,7 +6,7 @@ The current stable version of Beacon is actively supported with security updates
 
 ## Reporting a Vulnerability
 
-We take security vulnerabilities seriously. If you discover a vulnerability in Beacon, please report it privately to [me@davidnzube.xyz] instead of opening a public issue. We will work to address it promptly.
+We take security vulnerabilities seriously. If you discover a vulnerability in Beacon, please report it privately to beaconcloudtech@outlook.com. instead of opening a public issue. We will work to address it promptly.
 
 ## Known Issues and Warnings
 

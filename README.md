@@ -17,7 +17,7 @@ Beacon is a tool designed for the Web 4.0 agentic economy. It scans your codebas
 ## Install
 
 ```bash
-cargo install --path .
+curl -fsSL https://raw.githubusercontent.com/BeaconOnBase/beacon/master/install.sh | sh
 ```
 
 ---
