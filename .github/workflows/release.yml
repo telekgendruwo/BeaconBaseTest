@@ -107,7 +107,7 @@ jobs:
 
   release:
     name: Publish Release
-    needs: build
+    needs: [build, build-and-push-docker]
     runs-on: ubuntu-latest
     permissions:
       contents: write

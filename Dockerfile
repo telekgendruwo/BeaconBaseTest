@@ -21,7 +21,6 @@ RUN touch src/main.rs \
  && cargo build --release --target x86_64-unknown-linux-musl
 
 # ── Stage 2: Runtime ───────────────────────────────────────────────────────
-# Use scratch (or distroless) — MUSL binary is fully static, no libc needed
 FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y \
@@ -30,6 +29,5 @@ RUN apt-get update && apt-get install -y \
 
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/beacon /usr/local/bin/beacon
 
-EXPOSE 8080
-
-CMD ["beacon", "serve", "--port", "8080"]
+# Default command for the CLI in a container
+CMD ["beacon", "--help"]
