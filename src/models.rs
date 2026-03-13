@@ -99,4 +99,14 @@ pub struct ValidationResult {
     pub valid: bool,
     pub errors: Vec<String>,
     pub warnings: Vec<String>,
+    #[serde(default)]
+    pub endpoint_results: Vec<EndpointCheckResult>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct EndpointCheckResult {
+    pub endpoint: String,
+    pub reachable: bool,
+    pub status_code: Option<u16>,
+    pub error: Option<String>,
 }
