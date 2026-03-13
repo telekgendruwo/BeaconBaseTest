@@ -7,6 +7,7 @@ mod validator;
 mod models;
 mod errors;
 mod db;
+mod farcaster;
 mod verifier;
 
 #[cfg(test)]
@@ -86,6 +87,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Scan a local repo and generate AGENTS.md
     Generate {
         target: String,
         #[arg(short, long, default_value = "AGENTS.md")]
@@ -95,6 +97,7 @@ enum Commands {
         #[arg(long)]
         api_key: Option<String>,
     },
+    /// Validate an existing AGENTS.md file
     Validate {
         file: String,
         #[arg(long)]
@@ -105,6 +108,26 @@ enum Commands {
     Serve {
         #[arg(short, long, default_value = "8080")]
         port: u16,
+    },
+    /// Scan a remote GitHub repo and generate AGENTS.md
+    GenerateRemote {
+        /// GitHub URL (e.g., github.com/user/repo)
+        github_url: String,
+        #[arg(short, long, default_value = "AGENTS.md")]
+        output: String,
+        #[arg(long, default_value = "gemini")]
+        provider: String,
+        #[arg(long)]
+        api_key: Option<String>,
+    },
+    /// Start the Farcaster bot
+    FarcasterBot {
+        #[arg(long, default_value = "30")]
+        poll_interval: u64,
+        #[arg(long, default_value = "beacon-agents")]
+        channel: String,
+        #[arg(long, default_value = "gemini")]
+        provider: String,
     },
 }
 
@@ -317,7 +340,7 @@ async fn main() -> AnyResult<()> {
             println!("   Valid:    {}", if result.valid { "✅ Yes" } else { "❌ No" });
             println!("   Errors:   {}", result.errors.len());
             println!("   Warnings: {}", result.warnings.len());
-            
+
             if !result.errors.is_empty() {
                 println!("\n❌ Errors:");
                 for e in &result.errors {
@@ -344,19 +367,130 @@ async fn main() -> AnyResult<()> {
             }
         }
         Commands::Serve { port } => {
-            let redis_url = std::env::var("REDIS_URL").context("REDIS_URL not set")?;
-            let state = AppState {
-                redis_client: Arc::new(redis::Client::open(redis_url)?),
-            };
-            let app = Router::new()
-                .route("/health", get(health))
-                .route("/generate", post(handle_generate).with_state(state.clone()))
-                .route("/validate", post(handle_validate).with_state(state));
+            println!("{} Beacon — starting server on port {}...", random_emoji(), port);
             
-            let addr = SocketAddr::from(([0, 0, 0, 0], port));
-            println!("{} Beacon Cloud active on :{}", random_emoji(), port);
-            let listener = tokio::net::TcpListener::bind(addr).await?;
+            // Initialize Database (Postgres)
+            let pool = db::init_pool().await?;
+            db::run_migrations(&pool).await?;
+
+            // Initialize Redis (Cloud API State)
+            let redis_url = std::env::var("REDIS_URL").context("REDIS_URL must be set")?;
+            let redis_client = Arc::new(redis::Client::open(redis_url)?);
+            let cloud_state = AppState {
+                redis_client,
+            };
+
+            // Setup Main Router (Farcaster API)
+            let farcaster_state = farcaster::api::AppState { pool: pool.clone() };
+            let app = farcaster::api::router(farcaster_state);
+
+            // Merge with Cloud API routes
+            let app = app
+                .route("/generate", post(handle_generate).with_state(cloud_state.clone()))
+                .route("/validate", post(handle_validate).with_state(cloud_state));
+
+            // Add CORS layer
+            use tower_http::cors::{CorsLayer, Any};
+            let cors = CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any);
+
+            let app = app.layer(cors);
+
+            // Serve miniapp static files if the dist directory exists
+            let app = if std::path::Path::new("miniapp/dist").exists() {
+                use tower_http::services::ServeDir;
+                app.fallback_service(ServeDir::new("miniapp/dist"))
+            } else {
+                app
+            };
+
+            // Optionally spawn Farcaster Bot if NEYNAR_API_KEY is present
+            if std::env::var("NEYNAR_API_KEY").is_ok() {
+                println!("{} Spawning Farcaster Bot...", random_emoji());
+                let neynar = Arc::new(farcaster::neynar::NeynarClient::from_env()?);
+                let channel = std::env::var("FARCASTER_CHANNEL").unwrap_or_else(|_| "beacon-agents".into());
+                let config = farcaster::bot::BotConfig::new(channel.clone(), 30, "gemini".into());
+                let pool_clone = pool.clone();
+                let neynar_bot = neynar.clone();
+                
+                tokio::spawn(async move {
+                    if let Err(e) = farcaster::bot::run_bot(neynar_bot, config, pool_clone).await {
+                        tracing::error!("Farcaster bot error: {}", e);
+                    }
+                });
+
+                // Spawn event listener if agency address is configured
+                if let Ok(addr) = std::env::var("BEACON_AGENCY_ADDRESS") {
+                    let neynar_events = neynar.clone();
+                    let channel_events = channel.clone();
+                    tokio::spawn(async move {
+                        if let Err(e) = farcaster::bot::run_event_listener(
+                            neynar_events,
+                            channel_events,
+                            addr,
+                        ).await {
+                            tracing::error!("Event listener error: {}", e);
+                        }
+                    });
+                }
+            }
+
+            let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port)).await?;
+            println!("⬛ Beacon server running at http://0.0.0.0:{}", port);
             axum::serve(listener, app).await?;
+        }
+        Commands::GenerateRemote {
+            github_url,
+            output,
+            provider,
+            api_key,
+        } => {
+            println!("{} Beacon — scanning remote {}...", random_emoji(), github_url);
+            let github_token = std::env::var("GITHUB_TOKEN").ok();
+            let ctx = farcaster::github_scanner::scan_remote(&github_url, github_token.as_deref()).await?;
+            println!("📦 Repo: {} ({} source files)", ctx.name, ctx.source_files.len());
+            let manifest = inferrer::infer_capabilities(&ctx, &provider, api_key.as_deref()).await?;
+            generator::generate_agents_md(&manifest, &output)?;
+            println!("\n✅ Done! AGENTS.md written to: {}", output);
+            println!("   Provider:     {}", provider);
+            println!("   Capabilities: {}", manifest.capabilities.len());
+            println!("   Endpoints:    {}", manifest.endpoints.len());
+        }
+        Commands::FarcasterBot {
+            poll_interval,
+            channel,
+            provider,
+        } => {
+            println!("{} Beacon — starting Farcaster bot...", random_emoji());
+            let pool = db::init_pool().await?;
+            db::run_migrations(&pool).await?;
+
+            let neynar = Arc::new(farcaster::neynar::NeynarClient::from_env()?);
+            let config = farcaster::bot::BotConfig::new(channel.clone(), poll_interval, provider);
+
+            let agency_address = config.agency_address.clone();
+
+            // Spawn event listener if agency address is configured
+            if let Some(addr) = agency_address {
+                let neynar_clone = neynar.clone();
+                let channel_clone = channel.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = farcaster::bot::run_event_listener(
+                        neynar_clone,
+                        channel_clone,
+                        addr,
+                    )
+                    .await
+                    {
+                        tracing::error!("Event listener error: {}", e);
+                    }
+                });
+            }
+
+            // Run the bot (blocking)
+            farcaster::bot::run_bot(neynar, config, pool).await?;
         }
     }
     Ok(())

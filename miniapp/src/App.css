@@ -1,0 +1,329 @@
+.app {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #e0e0e0;
+  background: #0a0a0a;
+  min-height: 100vh;
+}
+
+.app-header {
+  text-align: center;
+  padding: 24px 0 16px;
+}
+
+.app-header h1 {
+  font-size: 28px;
+  margin: 0;
+  color: #fff;
+}
+
+.tagline {
+  color: #888;
+  margin: 4px 0 0;
+  font-size: 14px;
+}
+
+.user-info {
+  color: #666;
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+
+/* Navigation */
+.app-nav {
+  display: flex;
+  gap: 4px;
+  margin: 16px 0;
+  background: #141414;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.nav-tab {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  color: #888;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.nav-tab.active {
+  background: #222;
+  color: #fff;
+}
+
+.nav-tab:hover:not(.active) {
+  color: #ccc;
+}
+
+/* Search */
+.search-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: #141414;
+  color: #fff;
+  font-size: 14px;
+}
+
+.search-input::placeholder {
+  color: #555;
+}
+
+.search-button,
+.form-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  background: #fff;
+  color: #000;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.search-button:hover,
+.form-button:hover {
+  opacity: 0.85;
+}
+
+.form-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Agent Grid */
+.agents-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.agent-card {
+  background: #141414;
+  border: 1px solid #222;
+  border-radius: 10px;
+  padding: 16px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.agent-card:hover {
+  border-color: #444;
+}
+
+.agent-card h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  color: #fff;
+}
+
+.agent-description {
+  color: #888;
+  font-size: 13px;
+  margin: 0 0 12px;
+  line-height: 1.4;
+}
+
+.agent-stats {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.stat {
+  font-size: 12px;
+  color: #666;
+}
+
+.stat strong {
+  color: #ccc;
+}
+
+.on-chain-link {
+  font-size: 12px;
+  color: #4a9eff;
+  text-decoration: none;
+}
+
+.agent-date {
+  display: block;
+  font-size: 11px;
+  color: #444;
+  margin-top: 8px;
+}
+
+/* Forms */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 6px;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: #141414;
+  color: #fff;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.form-textarea {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  resize: vertical;
+}
+
+.form-select {
+  appearance: none;
+}
+
+/* Results */
+.result {
+  margin-top: 20px;
+}
+
+.agents-md-output {
+  background: #141414;
+  border: 1px solid #222;
+  border-radius: 8px;
+  padding: 16px;
+  font-size: 12px;
+  color: #ccc;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Validation */
+.validation-result {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #222;
+}
+
+.validation-result.valid {
+  border-color: #1a3a1a;
+  background: #0a1a0a;
+}
+
+.validation-result.invalid {
+  border-color: #3a1a1a;
+  background: #1a0a0a;
+}
+
+.validation-errors h4 {
+  color: #ff6b6b;
+}
+
+.validation-warnings h4 {
+  color: #ffd93d;
+}
+
+.validation-result ul {
+  padding-left: 20px;
+}
+
+.validation-result li {
+  font-size: 13px;
+  margin-bottom: 4px;
+  color: #ccc;
+}
+
+/* Payment */
+.payment-flow {
+  margin-top: 16px;
+}
+
+.payment-card {
+  background: #141414;
+  border: 1px solid #333;
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+}
+
+.payment-amount {
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  margin: 8px 0 4px;
+}
+
+.payment-network {
+  color: #666;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.payment-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.pay-button {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  background: #4a9eff;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cancel-button {
+  padding: 12px 24px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: transparent;
+  color: #888;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.payment-error {
+  color: #ff6b6b;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+/* States */
+.loading,
+.empty {
+  text-align: center;
+  color: #666;
+  padding: 32px 0;
+}
+
+.error {
+  color: #ff6b6b;
+  font-size: 13px;
+}

@@ -9,7 +9,7 @@ pub fn generate_agents_md(manifest: &AgentsManifest, output_path: &str) -> Resul
     Ok(())
 }
 
-fn render_markdown(m: &AgentsManifest) -> String {
+pub fn render_markdown(m: &AgentsManifest) -> String {
     let mut out = String::new();
 
     out.push_str(&format!("# AGENTS.md — {}\n\n", m.name));

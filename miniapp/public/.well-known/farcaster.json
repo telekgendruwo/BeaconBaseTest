@@ -1,0 +1,12 @@
+{
+  "accountAssociation": {},
+  "frame": {
+    "version": "next",
+    "name": "Beacon",
+    "iconUrl": "https://beacon.example.com/icon.png",
+    "homeUrl": "https://beacon.example.com/miniapp",
+    "splashImageUrl": "https://beacon.example.com/splash.png",
+    "splashBackgroundColor": "#000000",
+    "webhookUrl": "https://beacon.example.com/api/farcaster/webhook"
+  }
+}
