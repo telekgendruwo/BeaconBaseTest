@@ -20,7 +20,6 @@ pub struct AppState {
     pub pool: DbPool,
 }
 
-/// Build the Axum router with all API routes.
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
@@ -32,13 +31,9 @@ pub fn router(state: AppState) -> Router {
         .with_state(state)
 }
 
-// ─── Health ──────────────────────────────────────────────
-
 async fn health() -> &'static str {
     "ok"
 }
-
-// ─── Agent Search / Browse ───────────────────────────────
 
 #[derive(Deserialize)]
 struct ListAgentsQuery {
@@ -80,8 +75,6 @@ async fn get_agent(
     Ok(Json(agent))
 }
 
-// ─── Generate ────────────────────────────────────────────
-
 #[derive(Deserialize)]
 struct GenerateRequest {
     github_url: String,
@@ -102,12 +95,10 @@ async fn generate(
     let provider = body.provider.as_deref().unwrap_or("gemini");
     let github_token = std::env::var("GITHUB_TOKEN").ok();
 
-    // Scan the remote repo
     let ctx = github_scanner::scan_remote(&body.github_url, github_token.as_deref())
         .await
         .map_err(|e| (StatusCode::BAD_REQUEST, format!("Scan failed: {}", e)))?;
 
-    // Infer capabilities
     let manifest = inferrer::infer_capabilities(&ctx, provider, None)
         .await
         .map_err(|e| {
@@ -117,10 +108,8 @@ async fn generate(
             )
         })?;
 
-    // Generate markdown
     let agents_md = generator::render_markdown(&manifest);
 
-    // Store in database
     let id = db::insert_agent_manifest(&state.pool, &manifest, None, 0)
         .await
         .ok();
@@ -131,8 +120,6 @@ async fn generate(
         id,
     }))
 }
-
-// ─── Validate ────────────────────────────────────────────
 
 #[derive(Deserialize)]
 struct ValidateRequest {
@@ -148,12 +135,9 @@ async fn validate(
     Ok(Json(result))
 }
 
-// ─── Farcaster Webhook ───────────────────────────────────
-
 async fn farcaster_webhook(
     body: axum::body::Bytes,
 ) -> StatusCode {
-    // Log webhook events for now
     tracing::info!(
         "Farcaster webhook received: {}",
         String::from_utf8_lossy(&body)

@@ -39,9 +39,7 @@ struct GitHubRepo {
     default_branch: String,
 }
 
-/// Parse a GitHub URL into (owner, repo).
 fn parse_github_url(github_url: &str) -> Result<(String, String)> {
-    // Handle both full URLs and shorthand like "github.com/user/repo"
     let url_str = if github_url.starts_with("http") {
         github_url.to_string()
     } else {
@@ -62,7 +60,6 @@ fn parse_github_url(github_url: &str) -> Result<(String, String)> {
     Ok((segments[0].to_string(), segments[1].trim_end_matches(".git").to_string()))
 }
 
-/// Fetch a file's content from a GitHub repo via the Contents API.
 async fn fetch_file(owner: &str, repo: &str, path: &str, token: Option<&str>) -> Result<String> {
     let url = format!("https://api.github.com/repos/{}/{}/contents/{}", owner, repo, path);
     let mut req = CLIENT.get(&url).header("Accept", "application/vnd.github.v3+json");
@@ -79,7 +76,6 @@ async fn fetch_file(owner: &str, repo: &str, path: &str, token: Option<&str>) ->
     decode_content(&content)
 }
 
-/// Decode base64-encoded content from GitHub API response.
 fn decode_content(content: &GitHubContent) -> Result<String> {
     match (&content.content, &content.encoding) {
         (Some(encoded), Some(enc)) if enc == "base64" => {
@@ -93,12 +89,10 @@ fn decode_content(content: &GitHubContent) -> Result<String> {
     }
 }
 
-/// Scan a remote GitHub repository and produce a `RepoContext`.
 pub async fn scan_remote(github_url: &str, token: Option<&str>) -> Result<RepoContext> {
     let (owner, repo) = parse_github_url(github_url)?;
     println!("   📡 Scanning remote: {}/{}", owner, repo);
 
-    // Get default branch
     let repo_url = format!("https://api.github.com/repos/{}/{}", owner, repo);
     let mut req = CLIENT.get(&repo_url).header("Accept", "application/vnd.github.v3+json");
     if let Some(t) = token {
@@ -111,7 +105,6 @@ pub async fn scan_remote(github_url: &str, token: Option<&str>) -> Result<RepoCo
     let repo_info: GitHubRepo = resp.json().await?;
     let branch = &repo_info.default_branch;
 
-    // Get full file tree
     let tree_url = format!(
         "https://api.github.com/repos/{}/{}/git/trees/{}?recursive=1",
         owner, repo, branch
@@ -131,7 +124,6 @@ pub async fn scan_remote(github_url: &str, token: Option<&str>) -> Result<RepoCo
         ..Default::default()
     };
 
-    // Identify special files and source files from the tree
     let mut source_candidates: Vec<&TreeEntry> = Vec::new();
 
     for entry in &tree.tree {
@@ -192,7 +184,6 @@ pub async fn scan_remote(github_url: &str, token: Option<&str>) -> Result<RepoCo
         }
     }
 
-    // Fetch up to MAX_SOURCE_FILES source files
     let to_fetch = source_candidates.iter().take(MAX_SOURCE_FILES);
     for entry in to_fetch {
         if let Ok(content) = fetch_file(&owner, &repo, &entry.path, token).await {

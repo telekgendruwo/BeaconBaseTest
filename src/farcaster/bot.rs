@@ -34,9 +34,7 @@ impl BotConfig {
     }
 }
 
-/// Parse the command from a cast's text after the @beacon mention.
 pub fn parse_command(text: &str) -> BotCommand {
-    // Strip the mention (e.g., "@beacon scan ...")
     let lower = text.to_lowercase();
     let after_mention = if let Some(idx) = lower.find("@beacon") {
         &text[idx + 7..].trim()
@@ -69,7 +67,6 @@ pub fn parse_command(text: &str) -> BotCommand {
     }
 }
 
-/// Main bot loop: poll mentions, parse commands, execute, reply.
 pub async fn run_bot(
     neynar: Arc<NeynarClient>,
     config: BotConfig,
@@ -92,7 +89,6 @@ pub async fn run_bot(
         };
 
         for cast in &casts {
-            // Check if we already processed this cast
             if crate::db::scan_exists(&pool, &cast.hash).await.unwrap_or(true) {
                 continue;
             }
@@ -144,7 +140,6 @@ async fn handle_scan(
     github_token: Option<&str>,
     channel_id: &str,
 ) {
-    // Record that we're processing this cast
     let scan_id = match crate::db::insert_farcaster_scan(pool, &cast.hash, github_url).await {
         Ok(id) => id,
         Err(e) => {
@@ -153,7 +148,6 @@ async fn handle_scan(
         }
     };
 
-    // Scan the repo
     let ctx = match github_scanner::scan_remote(github_url, github_token).await {
         Ok(ctx) => ctx,
         Err(e) => {
@@ -169,7 +163,6 @@ async fn handle_scan(
         }
     };
 
-    // Infer capabilities
     let manifest = match inferrer::infer_capabilities(&ctx, provider, None).await {
         Ok(m) => m,
         Err(e) => {
@@ -185,10 +178,8 @@ async fn handle_scan(
         }
     };
 
-    // Generate markdown summary
     let agents_md = generator::render_markdown(&manifest);
 
-    // Build threaded reply
     let summary = format!(
         "⬛ Beacon scan complete for {}\n\n🏷️ {}\n📝 {}\n\n🔧 Capabilities: {}\n🌐 Endpoints: {}",
         github_url,
@@ -198,7 +189,6 @@ async fn handle_scan(
         manifest.endpoints.len(),
     );
 
-    // First reply: summary
     let reply_hash = match neynar.post_cast(&summary, Some(&cast.hash), Some(channel_id)).await {
         Ok(h) => h,
         Err(e) => {
@@ -207,7 +197,6 @@ async fn handle_scan(
         }
     };
 
-    // Thread capability details (2-3 per cast)
     if !manifest.capabilities.is_empty() {
         let mut cap_chunks = Vec::new();
         let mut current = String::from("🔧 Capabilities:\n");
@@ -227,7 +216,6 @@ async fn handle_scan(
         let _ = neynar.post_threaded(&cap_chunks, &reply_hash, Some(channel_id)).await;
     }
 
-    // Store result
     let _ = crate::db::insert_agent_manifest(
         pool,
         &manifest,
@@ -254,12 +242,10 @@ async fn handle_validate(
     github_token: Option<&str>,
     channel_id: &str,
 ) {
-    // Record scan
     let scan_id = crate::db::insert_farcaster_scan(pool, &cast.hash, github_url)
         .await
         .ok();
 
-    // Try to fetch AGENTS.md from the repo
     let agents_content = match github_scanner::scan_remote(github_url, github_token).await {
         Ok(ctx) => ctx.existing_agents_md,
         Err(e) => {
@@ -345,14 +331,13 @@ async fn handle_help(neynar: &NeynarClient, cast: &Cast, channel_id: &str) {
     let _ = neynar.post_cast(help_text, Some(&cast.hash), Some(channel_id)).await;
 }
 
-/// Watch for on-chain Wrap events and broadcast to Farcaster channel.
 pub async fn run_event_listener(
     neynar: Arc<NeynarClient>,
     channel_id: String,
     agency_address: String,
 ) -> Result<()> {
-    use ethers::prelude::*;
-    use ethers::types::{Address, Filter, H256};
+    use ethers_core::types::{Address, Filter, H256};
+    use ethers_providers::{Provider, Ws, Middleware, StreamExt};
     use std::str::FromStr;
 
     let rpc_url = std::env::var("BASE_WS_URL")
@@ -368,7 +353,6 @@ pub async fn run_event_listener(
         .parse()
         .context("Invalid agency contract address")?;
 
-    // Wrap(address,uint256,uint256) event signature
     let wrap_topic = H256::from_str(
         "0x5d624aa9c148153ab3446c5fcb3a68ea5f21877063a7e43eefb28366aa4e6266",
     )
@@ -384,13 +368,13 @@ pub async fn run_event_listener(
     while let Some(log) = stream.next().await {
         let tx_hash = log.transaction_hash.map(|h| format!("{:?}", h)).unwrap_or_default();
         let to = if log.topics.len() > 1 {
-            format!("0x{}", ethers::utils::hex::encode(&log.topics[1].as_bytes()[12..]))
+            format!("0x{}", ethers_core::utils::hex::encode(&log.topics[1].as_bytes()[12..]))
         } else {
             "unknown".to_string()
         };
 
         let token_id = if log.topics.len() > 2 {
-            ethers::types::U256::from_big_endian(log.topics[2].as_bytes()).to_string()
+            ethers_core::types::U256::from_big_endian(log.topics[2].as_bytes()).to_string()
         } else {
             "unknown".to_string()
         };

@@ -87,7 +87,6 @@ impl NeynarClient {
         Ok(Self::new(api_key, signer_uuid, bot_fid))
     }
 
-    /// Fetch recent mentions of the bot.
     pub async fn fetch_mentions(&self, cursor: Option<&str>) -> Result<(Vec<Cast>, Option<String>)> {
         let mut url = format!(
             "{}/notifications?fid={}&type=mentions",
@@ -120,7 +119,6 @@ impl NeynarClient {
         Ok((casts, next_cursor))
     }
 
-    /// Post a cast (reply or top-level).
     pub async fn post_cast(
         &self,
         text: &str,
@@ -158,7 +156,6 @@ impl NeynarClient {
         Ok(data.cast.hash)
     }
 
-    /// Post a threaded series of casts, each respecting the 1024 char limit.
     pub async fn post_threaded(
         &self,
         chunks: &[String],
@@ -172,7 +169,6 @@ impl NeynarClient {
             let hash = self.post_cast(chunk, Some(&parent), channel_id).await?;
             parent = hash.clone();
             hashes.push(hash);
-            // Small delay to avoid rate limiting
             tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         }
 
@@ -180,14 +176,12 @@ impl NeynarClient {
     }
 }
 
-/// Split a long text into chunks that fit within Farcaster's 1024 char limit.
 pub fn chunk_text(text: &str, max_chars: usize) -> Vec<String> {
     let max = if max_chars == 0 { 1024 } else { max_chars };
     let mut chunks = Vec::new();
     let mut current = String::new();
 
     for line in text.lines() {
-        // If adding this line would exceed the limit, push current and start fresh
         if !current.is_empty() && current.len() + line.len() + 1 > max {
             chunks.push(current.clone());
             current.clear();
@@ -195,7 +189,6 @@ pub fn chunk_text(text: &str, max_chars: usize) -> Vec<String> {
         if !current.is_empty() {
             current.push('\n');
         }
-        // If a single line exceeds max, split it
         if line.len() > max {
             let mut remaining = line;
             while !remaining.is_empty() {

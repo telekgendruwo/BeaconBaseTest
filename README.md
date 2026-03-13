@@ -11,6 +11,7 @@ Beacon is a tool designed for the Web 4.0 agentic economy. It scans your codebas
 - **AI-Powered Inference:** Automatically generate AAIF-compliant [AGENTS.md](https://github.com/agentmd/agent.md) manifests.
 - **Multi-provider Support:** Use Gemini or Claude with your own API keys.
 - **Local Validation:** Verify your manifest for standards compliance and best practices.
+- **Farcaster Bot:** Scan and validate repositories directly from Farcaster mentions.
 
 ---
 
@@ -34,6 +35,16 @@ beacon generate ./my-project
 ```bash
 beacon validate AGENTS.md
 ```
+
+---
+
+## Farcaster Bot
+
+Beacon is now live on Farcaster! You can scan or validate any GitHub repository by mentioning `@beacon` in a cast.
+
+**Commands:**
+- `@beacon scan github.com/user/repo` — Generates a summary and threads the capabilities.
+- `@beacon validate github.com/user/repo` — Validates an existing AGENTS.md and replies with a report.
 
 ---
 

@@ -120,11 +120,6 @@ enum Commands {
         #[arg(long)]
         api_key: Option<String>,
     },
-    /// Start the API server
-    Serve {
-        #[arg(short, long, default_value = "3000")]
-        port: u16,
-    },
     /// Start the Farcaster bot
     FarcasterBot {
         #[arg(long, default_value = "30")]
@@ -372,44 +367,27 @@ async fn main() -> AnyResult<()> {
             }
         }
         Commands::Serve { port } => {
-            let redis_url = std::env::var("REDIS_URL").context("REDIS_URL not set")?;
-            let state = AppState {
-                redis_client: Arc::new(redis::Client::open(redis_url)?),
-            };
-            let app = Router::new()
-                .route("/health", get(health))
-                .route("/generate", post(handle_generate).with_state(state.clone()))
-                .route("/validate", post(handle_validate).with_state(state));
-            
-            let addr = SocketAddr::from(([0, 0, 0, 0], port));
-            println!("{} Beacon Cloud active on :{}", random_emoji(), port);
-            let listener = tokio::net::TcpListener::bind(addr).await?;
-            axum::serve(listener, app).await?;
-        }
-        Commands::GenerateRemote {
-            github_url,
-            output,
-            provider,
-            api_key,
-        } => {
-            println!("{} Beacon — scanning remote {}...", random_emoji(), github_url);
-            let github_token = std::env::var("GITHUB_TOKEN").ok();
-            let ctx = farcaster::github_scanner::scan_remote(&github_url, github_token.as_deref()).await?;
-            println!("📦 Repo: {} ({} source files)", ctx.name, ctx.source_files.len());
-            let manifest = inferrer::infer_capabilities(&ctx, &provider, api_key.as_deref()).await?;
-            generator::generate_agents_md(&manifest, &output)?;
-            println!("\n✅ Done! AGENTS.md written to: {}", output);
-            println!("   Provider:     {}", provider);
-            println!("   Capabilities: {}", manifest.capabilities.len());
-            println!("   Endpoints:    {}", manifest.endpoints.len());
-        }
-        Commands::Serve { port } => {
             println!("{} Beacon — starting server on port {}...", random_emoji(), port);
+            
+            // Initialize Database (Postgres)
             let pool = db::init_pool().await?;
             db::run_migrations(&pool).await?;
 
-            let state = farcaster::api::AppState { pool };
-            let app = farcaster::api::router(state);
+            // Initialize Redis (Cloud API State)
+            let redis_url = std::env::var("REDIS_URL").context("REDIS_URL not set")?;
+            let redis_client = Arc::new(redis::Client::open(redis_url)?);
+            let cloud_state = AppState {
+                redis_client,
+            };
+
+            // Setup Main Router (Farcaster API)
+            let farcaster_state = farcaster::api::AppState { pool };
+            let app = farcaster::api::router(farcaster_state);
+
+            // Merge with Cloud API routes
+            let app = app
+                .route("/generate", post(handle_generate).with_state(cloud_state.clone()))
+                .route("/validate", post(handle_validate).with_state(cloud_state));
 
             // Add CORS layer
             use tower_http::cors::{CorsLayer, Any};
@@ -429,8 +407,25 @@ async fn main() -> AnyResult<()> {
             };
 
             let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port)).await?;
-            println!("⬛ Beacon server running at http://localhost:{}", port);
+            println!("⬛ Beacon server running at http://0.0.0.0:{}", port);
             axum::serve(listener, app).await?;
+        }
+        Commands::GenerateRemote {
+            github_url,
+            output,
+            provider,
+            api_key,
+        } => {
+            println!("{} Beacon — scanning remote {}...", random_emoji(), github_url);
+            let github_token = std::env::var("GITHUB_TOKEN").ok();
+            let ctx = farcaster::github_scanner::scan_remote(&github_url, github_token.as_deref()).await?;
+            println!("📦 Repo: {} ({} source files)", ctx.name, ctx.source_files.len());
+            let manifest = inferrer::infer_capabilities(&ctx, &provider, api_key.as_deref()).await?;
+            generator::generate_agents_md(&manifest, &output)?;
+            println!("\n✅ Done! AGENTS.md written to: {}", output);
+            println!("   Provider:     {}", provider);
+            println!("   Capabilities: {}", manifest.capabilities.len());
+            println!("   Endpoints:    {}", manifest.endpoints.len());
         }
         Commands::FarcasterBot {
             poll_interval,
