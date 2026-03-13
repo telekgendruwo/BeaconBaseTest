@@ -97,6 +97,10 @@ enum Commands {
     },
     Validate {
         file: String,
+        #[arg(long)]
+        check_endpoints: bool,
+        #[arg(long)]
+        provider: Option<String>,
     },
     Serve {
         #[arg(short, long, default_value = "8080")]
