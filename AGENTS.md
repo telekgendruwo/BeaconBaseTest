@@ -1,8 +1,8 @@
-# AGENTS.md — beacon-v2
+# AGENTS.md — Beacon
 
-> Beacon is a tool designed for the Web 4.0 agentic economy. It scans your codebase, infers its capabilities using AI, and generates a standards-compliant AGENTS.md manifest, making any repository agent-ready instantly.
+> Beacon is a tool designed for the Web 4.0 agentic economy. It scans codebases, infers their capabilities using AI, and generates standards-compliant AGENTS.md manifests. It also provides validation for existing manifests and integrates with Farcaster for on-demand scanning and validation.
 
-**Version:** 0.1.0
+**Version:** 0.1.1
 
 ---
 
@@ -10,7 +10,7 @@
 
 **Type:** `none`
 
-This is a CLI tool and does not expose an API that requires authentication. API keys are required for external AI providers it consumes.
+Public endpoints do not require explicit API key or bearer token authentication. The 'generate' capability may require payment via specific headers for certain operations.
 
 ---
 
@@ -18,73 +18,85 @@ This is a CLI tool and does not expose an API that requires authentication. API 
 
 What an agent can do with this repository:
 
-### `generate_agents_manifest`
+### `generate_agents_md_manifest`
 
-Scans a given repository path, uses AI (Gemini or Claude) to infer its capabilities, endpoints, and schemas, and then generates a standards-compliant AGENTS.md manifest file.
-
-**Input:**
-
-```json
-{
-  "properties": {
-    "api_key": {
-      "description": "The API key for the selected AI provider. Can also be set via environment variables (GEMINI_API_KEY or CLAUDE_API_KEY).",
-      "type": "string"
-    },
-    "output": {
-      "description": "The path where the AGENTS.md manifest should be written. Defaults to 'AGENTS.md'.",
-      "type": "string"
-    },
-    "provider": {
-      "description": "The AI provider to use for inference. Defaults to 'gemini'.",
-      "enum": [
-        "gemini",
-        "claude"
-      ],
-      "type": "string"
-    },
-    "target": {
-      "description": "The path to the repository to scan.",
-      "type": "string"
-    }
-  },
-  "required": [
-    "target"
-  ],
-  "type": "object"
-}
-```
+Scans a GitHub repository and generates an AAIF-compliant AGENTS.md manifest using AI. This operation may require a payment, which is handled by providing specific payment headers after an on-chain transaction.
 
 **Examples:**
 
-- export GEMINI_API_KEY=your_key; beacon generate ./my-project
-- beacon generate ./another-project --provider claude --api-key sk-xxxx --output docs/AGENTS.md
+- beacon generate github.com/my-org/my-project --provider claude
+- An agent can call the /api/generate endpoint with 'githubUrl': 'github.com/my-org/my-project' and optionally 'provider': 'claude'. If payment is required, it will receive a 402 response with payment details, then resubmit with 'x-payment-txn-hash', 'x-payment-chain', and 'x-payment-run-id' headers.
 
-### `validate_agents_manifest`
+### `validate_agents_md_manifest`
 
-Validates an existing AGENTS.md manifest file for compliance with AAIF standards and best practices, reporting any errors or warnings.
-
-**Input:**
-
-```json
-{
-  "properties": {
-    "file": {
-      "description": "The path to the AGENTS.md file to validate.",
-      "type": "string"
-    }
-  },
-  "required": [
-    "file"
-  ],
-  "type": "object"
-}
-```
+Checks an AGENTS.md manifest content for standards compliance and best practices.
 
 **Examples:**
 
 - beacon validate AGENTS.md
-- beacon validate ./docs/AGENTS.md
+- An agent can call the /api/validate endpoint with the 'content' of an AGENTS.md file in the request body.
+
+### `search_agent_manifests`
+
+Searches for existing agent manifests based on a query string, with pagination support.
+
+**Examples:**
+
+- An agent can call the /api/agents endpoint with query parameters like 'q=my project', 'limit=10', 'offset=0'.
+
+### `get_agent_manifest_details`
+
+Retrieves the full details of a specific agent manifest by its unique identifier.
+
+**Examples:**
+
+- An agent can call the /api/agents/{id} endpoint, replacing '{id}' with the specific agent's ID.
+
+---
+
+## Endpoints
+
+### `GET /api/agents`
+
+Searches for agent manifests based on a query.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `q` | `string` | ❌ | Optional search query string. |
+| `limit` | `string` | ❌ | Maximum number of results to return. Defaults to 20. |
+| `offset` | `string` | ❌ | Number of results to skip for pagination. Defaults to 0. |
+
+### `GET /api/agents/{id}`
+
+Retrieves the full details of a specific agent manifest by its ID.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | `string` | ✅ | The unique identifier of the agent manifest. |
+
+### `POST /api/generate`
+
+Generates an AGENTS.md manifest for a given GitHub repository URL. This operation may require a payment, indicated by a 402 status code. Payment details will be provided in the response, and the request can be retried with payment transaction headers.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `githubUrl` | `string` | ✅ | The URL of the GitHub repository to scan (e.g., 'github.com/user/repo'). |
+| `provider` | `string` | ❌ | The AI provider to use for inference ('gemini' or 'claude'). Defaults to 'gemini'. |
+| `x-payment-txn-hash` | `string` | ❌ | Transaction hash for payment, sent as a request header. |
+| `x-payment-chain` | `string` | ❌ | Blockchain used for payment (e.g., 'base'), sent as a request header. |
+| `x-payment-run-id` | `string` | ❌ | Identifier for the payment run, sent as a request header. |
+
+### `POST /api/validate`
+
+Validates AGENTS.md content for standards compliance.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `content` | `string` | ✅ | The full content of the AGENTS.md file to validate, sent in the request body. |
+
+### `GET /health`
+
+Health check endpoint for the service.
 
 ---
 
